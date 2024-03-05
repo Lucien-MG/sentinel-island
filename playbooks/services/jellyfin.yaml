@@ -1,0 +1,69 @@
+---
+- name: Jellyfin
+  hosts: all
+
+  # Gather machine informations
+  gather_facts: no
+
+  # Enable root previlegies
+  become: no
+
+  vars:
+    app_name: Jellyfin
+    app_image: docker.io/linuxserver/jellyfin
+    app_internal_port: 8096
+    app_external_port: 8096
+    timezone: Europe/Paris
+
+  # Run suitable scripts
+  tasks:
+
+    - name: Create {{ app_name }} Data Directory
+      file:
+        path: "{{data_path}}/{{app_name}}"
+        state: directory
+        mode: '0755'
+
+    - name: Create {{ app_name }} Config Directory
+      file:
+        path: "{{data_path}}/{{app_name}}/config"
+        state: directory
+        mode: '0777'
+
+    - name: Create {{ app_name }} Movies Directory
+      file:
+        path: "{{data_path}}/{{app_name}}/movies"
+        state: directory
+        mode: '0755'
+
+    - name: Create {{ app_name }} TVshows Directory
+      file:
+        path: "{{data_path}}/{{app_name}}/tvshows"
+        state: directory
+        mode: '0755'
+
+    - name: Pull {{ app_name }} Image
+      containers.podman.podman_image:
+        name: "{{ app_image }}"
+        state: present
+
+    - name: Create {{app_name}} Container
+      containers.podman.podman_container:
+        name: "{{ app_name }}"
+        image: "{{ app_image }}"
+        state: started
+        recreate: yes
+        ports:
+          - "{{app_external_port}}:{{app_internal_port}}"
+        expose:
+          - "{{ app_external_port }}"
+        volumes:
+          - "{{data_path}}/{{app_name}}/config:/config"
+          - "{{data_path}}/{{app_name}}/tvshows:/data/tvshows"
+          - "{{data_path}}/{{app_name}}/movies:/data/movies"
+        generate_systemd:
+          path: "~/.config/systemd/user/"
+          restart_policy: always
+          time: 120
+          names: true
+          container_prefix: container
